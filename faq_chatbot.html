@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FAQ Chatbot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    color: #fff;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 18px;
+    margin-top: 8px;
+  }
+
+  header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #43cea2, #185a9d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header p { font-size: 12px; color: #aaa; margin-top: 4px; }
+
+  .chat-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    height: 72vh;
+    overflow: hidden;
+  }
+
+  .chat-window {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-window::-webkit-scrollbar { width: 4px; }
+  .chat-window::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+  .msg {
+    max-width: 85%;
+    padding: 11px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    animation: fadeIn 0.25s ease;
+  }
+
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+
+  .msg.bot {
+    background: rgba(67,206,162,0.15);
+    border: 1px solid rgba(67,206,162,0.25);
+    color: #d0f5ea;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .msg.user {
+    background: rgba(24,90,157,0.4);
+    border: 1px solid rgba(24,90,157,0.5);
+    color: #cde4f7;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg .sender {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .confidence {
+    font-size: 10px;
+    opacity: 0.5;
+    margin-top: 5px;
+  }
+
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .suggestion-chip {
+    background: rgba(67,206,162,0.12);
+    border: 1px solid rgba(67,206,162,0.3);
+    color: #43cea2;
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .suggestion-chip:hover { background: rgba(67,206,162,0.25); }
+
+  .input-area {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .input-area input {
+    flex: 1;
+    padding: 11px 14px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s;
+  }
+
+  .input-area input::placeholder { color: #555; }
+  .input-area input:focus { border-color: rgba(67,206,162,0.5); }
+
+  .send-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #43cea2, #185a9d);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+
+  .send-btn:hover { opacity: 0.85; }
+
+  .topic-bar {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .topic-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .topic-btn.active, .topic-btn:hover {
+    background: rgba(67,206,162,0.15);
+    border-color: rgba(67,206,162,0.4);
+    color: #43cea2;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 FAQ Chatbot</h1>
+  <p>AI-powered · Cosine Similarity Matching · NLP Preprocessing</p>
+</header>
+
+<div class="chat-card">
+
+  <div class="topic-bar" id="topicBar">
+    <button class="topic-btn active" onclick="setTopic('all')">All Topics</button>
+    <button class="topic-btn" onclick="setTopic('general')">General</button>
+    <button class="topic-btn" onclick="setTopic('account')">Account</button>
+    <button class="topic-btn" onclick="setTopic('payment')">Payment</button>
+    <button class="topic-btn" onclick="setTopic('technical')">Technical</button>
+  </div>
+
+  <div class="chat-window" id="chatWindow"></div>
+
+  <div class="input-area">
+    <input type="text" id="userInput" placeholder="Ask me anything..." onkeydown="if(event.key==='Enter') sendMessage()"/>
+    <button class="send-btn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<script>
+// ─── FAQ DATA ──────────────────────────────────────────────────────────
+const faqs = [
+  // General
+  { q: "What is this service?", a: "We are an AI-powered platform that helps users automate tasks, get smart answers, and boost productivity using cutting-edge artificial intelligence.", topic: "general" },
+  { q: "How does this chatbot work?", a: "This chatbot uses NLP techniques like tokenization, stopword removal, and cosine similarity to match your question with the most relevant FAQ answer.", topic: "general" },
+  { q: "Is this service free to use?", a: "Yes! We offer a free tier with core features. Premium plans are available for advanced features and higher usage limits.", topic: "general" },
+  { q: "What languages do you support?", a: "Currently we support English, Hindi, Spanish, French, and German. More languages are being added soon!", topic: "general" },
+  { q: "How accurate are the answers?", a: "Our AI is trained on a comprehensive FAQ dataset and continuously improves. For complex issues, we recommend contacting human support.", topic: "general" },
+  { q: "Can I use this on mobile?", a: "Absolutely! Our platform is fully responsive and works on all devices including Android and iOS.", topic: "general" },
+
+  // Account
+  { q: "How do I create an account?", a: "Click 'Sign Up' on the homepage, enter your email and password, and verify your email address. It takes less than 2 minutes!", topic: "account" },
+  { q: "I forgot my password", a: "Click 'Forgot Password' on the login page. Enter your registered email and we'll send you a password reset link within a few minutes.", topic: "account" },
+  { q: "How do I change my email?", a: "Go to Settings > Profile > Email. You'll need to verify the new email address before the change takes effect.", topic: "account" },
+  { q: "Can I delete my account?", a: "Yes. Go to Settings > Account > Delete Account. Note that this action is permanent and all your data will be removed.", topic: "account" },
+  { q: "How do I update my profile?", a: "Navigate to Settings > Profile. You can update your name, photo, bio, and other details there.", topic: "account" },
+
+  // Payment
+  { q: "What payment methods do you accept?", a: "We accept credit/debit cards (Visa, MasterCard), UPI, PayPal, and net banking. All transactions are secured with SSL encryption.", topic: "payment" },
+  { q: "How do I cancel my subscription?", a: "Go to Settings > Subscription > Cancel Plan. Your access continues until the end of the current billing period.", topic: "payment" },
+  { q: "Will I get a refund?", a: "We offer a 7-day money-back guarantee for new subscriptions. Contact our support team within 7 days of purchase for a full refund.", topic: "payment" },
+  { q: "How do I upgrade my plan?", a: "Visit Settings > Subscription > Upgrade. Choose your preferred plan and complete the payment. The upgrade is instant!", topic: "payment" },
+  { q: "Is my payment information safe?", a: "Yes. We use industry-standard AES-256 encryption and never store your card details on our servers.", topic: "payment" },
+
+  // Technical
+  { q: "The app is not loading", a: "Try clearing your browser cache, disabling extensions, or using a different browser. If the issue persists, check our status page or contact support.", topic: "technical" },
+  { q: "How do I report a bug?", a: "Click the 'Feedback' button at the bottom of any page, or email bugs@service.com with a description and screenshots of the issue.", topic: "technical" },
+  { q: "What browsers are supported?", a: "We support Chrome, Firefox, Safari, and Edge (latest 2 versions). Internet Explorer is not supported.", topic: "technical" },
+  { q: "How do I export my data?", a: "Go to Settings > Data > Export. You can download all your data in JSON or CSV format within 24 hours.", topic: "technical" },
+  { q: "The chatbot is not responding", a: "Please check your internet connection. If the problem continues, try refreshing the page or clearing browser cookies.", topic: "technical" },
+];
+
+// ─── NLP UTILITIES ─────────────────────────────────────────────────────
+const stopwords = new Set(['i','me','my','we','our','you','your','he','she','it','they','what','which','who','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','can','a','an','the','and','but','or','nor','for','so','yet','to','of','in','on','at','by','with','about','how','why','when','where','this','that','these','those']);
+
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w && !stopwords.has(w));
+}
+
+function buildVector(tokens, vocab) {
+  const tf = {};
+  tokens.forEach(t => tf[t] = (tf[t] || 0) + 1);
+  return vocab.map(v => tf[v] || 0);
+}
+
+function cosineSimilarity(a, b) {
+  const dot = a.reduce((s, v, i) => s + v * b[i], 0);
+  const magA = Math.sqrt(a.reduce((s, v) => s + v * v, 0));
+  const magB = Math.sqrt(b.reduce((s, v) => s + v * v, 0));
+  return (magA && magB) ? dot / (magA * magB) : 0;
+}
+
+function findBestMatch(query, topic = 'all') {
+  const pool = topic === 'all' ? faqs : faqs.filter(f => f.topic === topic);
+  const qTokens = tokenize(query);
+  const allTokens = [...new Set([...qTokens, ...pool.flatMap(f => tokenize(f.q))])];
+  const qVec = buildVector(qTokens, allTokens);
+
+  let best = null, bestScore = 0;
+  pool.forEach(faq => {
+    const fVec = buildVector(tokenize(faq.q), allTokens);
+    const score = cosineSimilarity(qVec, fVec);
+    if (score > bestScore) { bestScore = score; best = faq; }
+  });
+
+  return { match: bestScore > 0.15 ? best : null, score: bestScore };
+}
+
+// ─── CHAT UI ───────────────────────────────────────────────────────────
+let currentTopic = 'all';
+
+function setTopic(t) {
+  currentTopic = t;
+  document.querySelectorAll('.topic-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function appendMsg(role, text, score = null, chips = []) {
+  const win = document.getElementById('chatWindow');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  const sender = document.createElement('div');
+  sender.className = 'sender';
+  sender.textContent = role === 'bot' ? '🤖 Bot' : '👤 You';
+  div.appendChild(sender);
+
+  const body = document.createElement('div');
+  body.textContent = text;
+  div.appendChild(body);
+
+  if (score !== null) {
+    const conf = document.createElement('div');
+    conf.className = 'confidence';
+    const pct = Math.round(score * 100);
+    conf.textContent = `Match confidence: ${pct}%`;
+    div.appendChild(conf);
+  }
+
+  if (chips.length) {
+    const sg = document.createElement('div');
+    sg.className = 'suggestions';
+    chips.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'suggestion-chip';
+      btn.textContent = c;
+      btn.onclick = () => { document.getElementById('userInput').value = c; sendMessage(); };
+      sg.appendChild(btn);
+    });
+    div.appendChild(sg);
+  }
+
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function sendMessage() {
+  const input = document.getElementById('userInput');
+  const query = input.value.trim();
+  if (!query) return;
+  input.value = '';
+
+  appendMsg('user', query);
+
+  setTimeout(() => {
+    const { match, score } = findBestMatch(query, currentTopic);
+
+    if (match) {
+      const suggestions = faqs
+        .filter(f => f.topic === match.topic && f.q !== match.q)
+        .slice(0, 3)
+        .map(f => f.q);
+      appendMsg('bot', match.a, score, suggestions);
+    } else {
+      appendMsg('bot',
+        "I couldn't find a matching answer for that. Try rephrasing your question, or pick a topic from the bar above. Here are some things you can ask:",
+        null,
+        ["How do I create an account?", "What payment methods do you accept?", "The app is not loading"]
+      );
+    }
+  }, 350);
+}
+
+// ─── WELCOME MESSAGE ───────────────────────────────────────────────────
+window.onload = () => {
+  appendMsg('bot',
+    "Hello! 👋 I'm your AI FAQ assistant. I can answer questions about our service, account, payments, and technical issues. What would you like to know?",
+    null,
+    ["Is this service free?", "How do I reset my password?", "What payment methods do you accept?"]
+  );
+};
+</script>
+</body>
+</html>
